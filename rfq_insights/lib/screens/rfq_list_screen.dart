@@ -1,13 +1,18 @@
+import 'dart:convert';
+import 'dart:js_interop';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:csv/csv.dart';
 import 'package:rfq_insights/models/rfq.dart';
 import 'package:rfq_insights/screens/analytics_dashboard_screen.dart';
 import 'package:rfq_insights/screens/auth_screen.dart';
 import 'package:rfq_insights/screens/filter_bottom_sheet.dart';
 import 'package:rfq_insights/screens/master_list_manager_screen.dart';
 import 'package:rfq_insights/screens/rfq_form_screen.dart';
+import 'package:web/web.dart' as web;
 
 class RfqListScreen extends StatefulWidget {
   const RfqListScreen({super.key});
@@ -155,12 +160,115 @@ class _RfqListScreenState extends State<RfqListScreen> {
     }
   }
 
+  // Down load RFQ List to CSV
+  Future<void> _downloadRfqList() async {
+    try {
+      final querySnapshot = await _firestore.collection('rfqs').get();
+      final rfqDocs = querySnapshot.docs;
+
+      if (rfqDocs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No RFQ entries to download.')),
+        );
+        return;
+      }
+
+      List<List<dynamic>> csvData = [
+        [
+          'Location',
+          'RFQ Send Date',
+          'Quote Received Date',
+          'IMD Name',
+          'IMD Code',
+          'Proposer Name',
+          'Occupancy',
+          'LOB',
+          'Status',
+          'Premium',
+          'Remarks',
+          'COA',
+          'Preferred/Referred',
+          'Quote Mode',
+          'Interaction ID',
+          'CSM/RM Name',
+          'Inward Tracker',
+          'Policy No',
+          'Co-share %',
+          'Total Net Premium',
+          'Total Premium with GST',
+        ],
+      ];
+
+      for (var doc in rfqDocs) {
+        final rfq = Rfq.fromFirestore(
+          doc as DocumentSnapshot<Map<String, dynamic>>,
+        );
+        csvData.add([
+          rfq.location,
+          DateFormat('dd-MMM-yyyy').format(rfq.rfqSendDate),
+          rfq.quoteReceivedDate != null
+              ? DateFormat('dd-MMM-yyyy').format(rfq.quoteReceivedDate!)
+              : 'N/A',
+          rfq.imdName,
+          rfq.imdCode,
+          rfq.proposerName,
+          rfq.occupancy,
+          rfq.lob,
+          rfq.status,
+          rfq.premium,
+          rfq.remarks ?? '',
+          rfq.coa,
+          rfq.preferredReferred,
+          rfq.quoteMode,
+          rfq.interactionId,
+          rfq.csmRmName,
+          rfq.inwardTracker ?? '',
+          rfq.policyNo ?? '',
+          rfq.coSharePercentage,
+          rfq.totalNetPremium,
+          rfq.totalPremiumWithGst,
+        ]);
+      }
+
+      String csv = const ListToCsvConverter().convert(csvData);
+
+      // Use the new web API to trigger the download
+      final blob = web.Blob(
+        [Utf8Encoder().convert(csv).toJS].toJS,
+        web.BlobPropertyBag(type: 'text/csv'),
+      );
+      final url = web.URL.createObjectURL(blob);
+      final anchor = web.HTMLAnchorElement()
+        ..href = url
+        ..download =
+            'rfq_list_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv';
+      web.document.body!.append(anchor);
+      anchor.click();
+      web.document.body!.removeChild(anchor);
+      web.URL.revokeObjectURL(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('RFQ list downloaded successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to download RFQ list: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('RFQ Tracker Dashboard'),
         actions: [
+          if (_isAdmin)
+            IconButton(
+              icon: const Icon(Icons.download),
+              tooltip: 'Download RFQ List',
+              onPressed: _downloadRfqList,
+            ),
           if (_isAdmin)
             IconButton(
               icon: const Icon(Icons.settings),
@@ -174,18 +282,18 @@ class _RfqListScreenState extends State<RfqListScreen> {
               },
             ),
           // --- NEW: Analytics Dashboard Button ---
-          if (_isAdmin)
-            IconButton(
-              icon: const Icon(Icons.analytics),
-              tooltip: 'Analytics Dashboard',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AnalyticsDashboardScreen(),
-                  ),
-                );
-              },
-            ),
+          // if (_isAdmin)
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            tooltip: 'Analytics Dashboard',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const AnalyticsDashboardScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list), // New filter icon
             tooltip: 'Filter',
