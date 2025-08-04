@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289868045508",
+    "project_id": "rfqinsights",
+    "storage_bucket": "rfqinsights.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289868045508:android:8f0f746f2e31102b99fd91",
+        "android_client_info": {
+          "package_name": "com.example.rfq_insights"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB77RKn5XPGFLIY7hczmJOHmERWN3Fk0hQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
