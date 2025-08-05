@@ -20,9 +20,11 @@ class Rfq {
   String csmRmName;
   String? inwardTracker; // Nullable, if closed and Inwarded
   String? policyNo; // Nullable, if generated
+  DateTime? policyExpiryDate; // Nullable, if generated
   double coSharePercentage;
   double totalNetPremium;
   double totalPremiumWithGst; // Auto computed
+  String? urgencyFlag; // New field for urgency flag
 
   Rfq({
     this.id,
@@ -44,9 +46,11 @@ class Rfq {
     required this.csmRmName,
     this.inwardTracker,
     this.policyNo,
+    this.policyExpiryDate,
     required this.coSharePercentage,
     required this.totalNetPremium,
     required this.totalPremiumWithGst,
+    required this.urgencyFlag,
   });
 
   // Factory constructor to create an Rfq object from a Firestore document
@@ -75,6 +79,9 @@ class Rfq {
       csmRmName: data?['csmRmName'] ?? '',
       inwardTracker: data?['inwardTracker'],
       policyNo: data?['policyNo'],
+      policyExpiryDate: (data?['policyExpiryDate'] as Timestamp?)?.toDate(),
+      urgencyFlag:
+          data?['urgencyFlag'] ?? 'Normal', // Default to 'Normal' if not set
       coSharePercentage: (data?['coSharePercentage'] ?? 0.0).toDouble(),
       totalNetPremium: (data?['totalNetPremium'] ?? 0.0).toDouble(),
       totalPremiumWithGst: (data?['totalPremiumWithGst'] ?? 0.0).toDouble(),
@@ -104,6 +111,10 @@ class Rfq {
       'csmRmName': csmRmName,
       'inwardTracker': inwardTracker,
       'policyNo': policyNo,
+      'policyExpiryDate': policyExpiryDate != null
+          ? Timestamp.fromDate(policyExpiryDate!)
+          : null,
+      'urgencyFlag': urgencyFlag ?? 'Normal', // Default to 'Normal' if not set
       'coSharePercentage': coSharePercentage,
       'totalNetPremium': totalNetPremium,
       'totalPremiumWithGst': totalPremiumWithGst,

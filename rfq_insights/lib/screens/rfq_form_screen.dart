@@ -55,6 +55,8 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
   final TextEditingController _inwardTrackerController =
       TextEditingController();
   final TextEditingController _policyNoController = TextEditingController();
+  final TextEditingController _policyExpiryDateController =
+      TextEditingController();
   final TextEditingController _coSharePercentageController =
       TextEditingController();
   final TextEditingController _totalNetPremiumController =
@@ -79,9 +81,10 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
   String? _selectedPreferredReferred;
   String? _selectedQuoteMode;
   String? _selectedCsmRmName;
-
   DateTime? _rfqSendDate;
   DateTime? _quoteReceivedDate;
+  DateTime? _policyExpiryDate;
+  String? _urgencyFlag;
 
   final List<String> _preferredReferredOptions = [
     'Preferred',
@@ -114,6 +117,7 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
     _interactionIdController.dispose();
     _inwardTrackerController.dispose();
     _policyNoController.dispose();
+    _policyExpiryDateController.dispose();
     _coSharePercentageController.dispose();
     // _totalNetPremiumController.removeListener(_computeTotalPremiumWithGst);
     _totalNetPremiumController.dispose();
@@ -211,6 +215,13 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
     _selectedCsmRmName = rfq.csmRmName;
     _inwardTrackerController.text = rfq.inwardTracker ?? '';
     _policyNoController.text = rfq.policyNo ?? '';
+    _policyExpiryDate = rfq.policyExpiryDate;
+    if (_policyExpiryDate != null) {
+      _policyExpiryDateController.text = DateFormat(
+        'dd-MMM-yyyy',
+      ).format(_policyExpiryDate!);
+      _checkPolicyStatus(_policyExpiryDate!); // Check status on load
+    }
     _coSharePercentageController.text = rfq.coSharePercentage.toString();
     _totalNetPremiumController.text = rfq.totalNetPremium.toString();
     // _totalPremiumWithGstController.text = rfq.totalPremiumWithGst
@@ -249,9 +260,27 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
     }
   }
 
+  // New method to check the policy status
+  void _checkPolicyStatus(DateTime expiryDate) {
+    final now = DateTime.now();
+    final difference = expiryDate.difference(now).inDays;
+
+    setState(() {
+      if (difference < 0) {
+        _urgencyFlag = 'Expired';
+      } else if (difference <= 7) {
+        _urgencyFlag = 'Expiring Soon';
+      } else {
+        _urgencyFlag = null;
+      }
+    });
+  }
+
   Future<void> _selectDate(
     BuildContext context, {
-    required bool isRfqSendDate,
+    bool isRfqSendDate = false,
+    bool isQuoteReceivedDate = false,
+    bool isPolicyExpiryDate = false,
   }) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -266,11 +295,17 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
           _rfqSendDateController.text = DateFormat(
             'dd-MMM-yyyy',
           ).format(pickedDate);
-        } else {
+        } else if (isQuoteReceivedDate) {
           _quoteReceivedDate = pickedDate;
           _quoteReceivedDateController.text = DateFormat(
             'dd-MMM-yyyy',
           ).format(pickedDate);
+        } else if (isPolicyExpiryDate) {
+          _policyExpiryDate = pickedDate;
+          _policyExpiryDateController.text = DateFormat(
+            'dd-MMM-yyyy',
+          ).format(pickedDate);
+          _checkPolicyStatus(pickedDate); // Check status on date selection
         }
       });
     }
@@ -329,6 +364,8 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
         policyNo: _policyNoController.text.trim().isEmpty
             ? null
             : _policyNoController.text.trim(),
+        policyExpiryDate: _policyExpiryDate!,
+        urgencyFlag: _urgencyFlag,
         coSharePercentage: double.parse(
           _coSharePercentageController.text.trim(),
         ),
@@ -502,6 +539,39 @@ class _RfqFormScreenState extends State<RfqFormScreen> {
                       controller: _policyNoController,
                       labelText: 'Policy No (Optional)',
                     ),
+                    _buildDatePickerField(
+                      controller: _policyExpiryDateController,
+                      labelText: 'Policy Expiry Date (Optional)',
+                      onTap: () =>
+                          _selectDate(context, isPolicyExpiryDate: true),
+                    ),
+                    // New widget to display the urgency flag
+                    if (_urgencyFlag != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _urgencyFlag == 'Expired'
+                                  ? Icons.error
+                                  : Icons.warning,
+                              color: _urgencyFlag == 'Expired'
+                                  ? Colors.red
+                                  : Colors.amber,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _urgencyFlag!,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _urgencyFlag == 'Expired'
+                                    ? Colors.red
+                                    : Colors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     _buildNumberField(
                       controller: _coSharePercentageController,
                       labelText: 'Co-share %',

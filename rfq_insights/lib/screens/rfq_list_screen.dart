@@ -193,6 +193,7 @@ class _RfqListScreenState extends State<RfqListScreen> {
           'CSM/RM Name',
           'Inward Tracker',
           'Policy No',
+          'Policy Expiry Date',
           'Co-share %',
           'Total Net Premium',
           'Total Premium with GST',
@@ -224,6 +225,9 @@ class _RfqListScreenState extends State<RfqListScreen> {
           rfq.csmRmName,
           rfq.inwardTracker ?? '',
           rfq.policyNo ?? '',
+          rfq.policyExpiryDate != null
+              ? DateFormat('dd-MMM-yyyy').format(rfq.policyExpiryDate!)
+              : 'N/A',
           rfq.coSharePercentage,
           rfq.totalNetPremium,
           rfq.totalPremiumWithGst,
@@ -579,7 +583,19 @@ class _RfqListScreenState extends State<RfqListScreen> {
 
   // Helper method for the mobile view's RFQ card (unchanged)
   Widget _buildRfqCard(Rfq rfq) {
-    // ... (This method remains the same as in the previous response)
+    Color? urgencyColor;
+    IconData? urgencyIcon;
+    if (rfq.urgencyFlag == 'Expired') {
+      urgencyColor = Colors.red;
+      urgencyIcon = Icons.error;
+    } else if (rfq.urgencyFlag == 'Expiring Soon') {
+      urgencyColor = Colors.amber;
+      urgencyIcon = Icons.warning;
+    } else {
+      urgencyColor = null; // No special color for other statuses
+      urgencyIcon = null;
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: ExpansionTile(
@@ -590,9 +606,25 @@ class _RfqListScreenState extends State<RfqListScreen> {
             style: const TextStyle(color: Colors.white),
           ),
         ),
-        title: Text(
-          rfq.proposerName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Text(
+              rfq.proposerName,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8.0),
+            if (rfq.urgencyFlag != null)
+              Chip(
+                padding: const EdgeInsets.all(2.0),
+                label: Text(
+                  rfq.urgencyFlag!,
+                  style: TextStyle(color: Colors.white),
+                ),
+                backgroundColor: urgencyColor ?? Colors.green,
+              ),
+            // if (urgencyColor != null)
+            //   Icon(urgencyIcon, color: urgencyColor, size: 20),
+          ],
         ),
         subtitle: Text('Status: ${rfq.status} | LOB: ${rfq.lob}'),
         childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -607,6 +639,12 @@ class _RfqListScreenState extends State<RfqListScreen> {
             'Quote Received Date',
             rfq.quoteReceivedDate != null
                 ? DateFormat('dd-MMM-yyyy').format(rfq.quoteReceivedDate!)
+                : 'N/A',
+          ),
+          _buildDetailRow(
+            'Policy Expiry Date',
+            rfq.policyExpiryDate != null
+                ? DateFormat('dd-MMM-yyyy').format(rfq.policyExpiryDate!)
                 : 'N/A',
           ),
           _buildDetailRow('IMD Name', rfq.imdName),
