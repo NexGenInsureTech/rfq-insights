@@ -313,7 +313,7 @@ class _RfqListScreenState extends State<RfqListScreen> {
                 );
               },
             ),
-          if (_isAdmin)
+          // if (_isAdmin)
             IconButton(
               icon: const Icon(Icons.analytics),
               tooltip: 'Analytics Dashboard',
