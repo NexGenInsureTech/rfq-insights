@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:dropdown_search/dropdown_search.dart';
 
 class FilterBottomSheet extends StatefulWidget {
   final Set<String> uniqueStatuses;
   final Set<String> uniqueLOBs;
   final Set<String> uniqueCSMs;
-  final Set<String> uniqueLocations; // <-- NEW parameter
-  final Function(String?, String?, String?, String?)
-  onApplyFilters; // <-- Updated signature
+  final Set<String> uniqueLocations;
+  final List<String> urgencyFilters; // <-- NEW
+  final List<String> agingFilters; // <-- NEW
+  final Function(String?, String?, String?, String?, String?, String?)
+  onApplyFilters; // <-- UPDATED
 
   const FilterBottomSheet({
     super.key,
     required this.uniqueStatuses,
     required this.uniqueLOBs,
     required this.uniqueCSMs,
-    required this.uniqueLocations, // <-- Required here
+    required this.uniqueLocations,
+    required this.urgencyFilters,
+    required this.agingFilters,
     required this.onApplyFilters,
   });
 
@@ -26,136 +29,131 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   String? _selectedStatus;
   String? _selectedLOB;
   String? _selectedCSM;
-  String? _selectedLocation; // <-- NEW variable
+  String? _selectedLocation;
+  String? _selectedUrgency; // <-- NEW
+  String? _selectedAging; // <-- NEW
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedStatus = null;
+      _selectedLOB = null;
+      _selectedCSM = null;
+      _selectedLocation = null;
+      _selectedUrgency = null;
+      _selectedAging = null;
+    });
+    // This will apply the cleared filters to the parent widget
+    widget.onApplyFilters(null, null, null, null, null, null);
+    Navigator.of(context).pop();
+  }
+
+  Widget _buildFilterDropdown({
+    required String label,
+    required List<String> options,
+    required String? selectedValue,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: DropdownButtonFormField<String>(
+        value: selectedValue,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('All')),
+          ...options.map((String value) {
+            return DropdownMenuItem<String>(value: value, child: Text(value));
+          }),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Apply Filters',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          // Status Dropdown
-          DropdownSearch<String>(
-            popupProps: const PopupProps.menu(showSearchBox: true),
-            items: (String filter, dynamic props) {
-              final list = widget.uniqueStatuses.toList();
-              if (filter.isEmpty) return list;
-              return list
-                  .where(
-                    (item) => item.toLowerCase().contains(filter.toLowerCase()),
-                  )
-                  .toList();
-            },
-            decoratorProps: const DropDownDecoratorProps(
-              decoration: InputDecoration(
-                labelText: "Status",
-                border: OutlineInputBorder(),
-              ),
+    return SingleChildScrollView(
+      child: Container(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Filter RFQs',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: _clearFilters,
+                  child: const Text('Clear All'),
+                ),
+              ],
             ),
-            onChanged: (value) => _selectedStatus = value,
-            selectedItem: _selectedStatus,
-          ),
-          const SizedBox(height: 12),
-          // LOB Dropdown
-          DropdownSearch<String>(
-            popupProps: const PopupProps.menu(showSearchBox: true),
-            items: (String filter, dynamic props) {
-              final list = widget.uniqueLOBs.toList();
-              if (filter.isEmpty) return list;
-              return list
-                  .where(
-                    (item) => item.toLowerCase().contains(filter.toLowerCase()),
-                  )
-                  .toList();
-            },
-            decoratorProps: const DropDownDecoratorProps(
-              decoration: InputDecoration(
-                labelText: "LOB",
-                border: OutlineInputBorder(),
-              ),
+            const Divider(),
+            _buildFilterDropdown(
+              label: 'Status',
+              options: widget.uniqueStatuses.toList(),
+              selectedValue: _selectedStatus,
+              onChanged: (value) => setState(() => _selectedStatus = value),
             ),
-            onChanged: (value) => _selectedLOB = value,
-            selectedItem: _selectedLOB,
-          ),
-          const SizedBox(height: 12),
-          // CSM/RM Name Dropdown
-          DropdownSearch<String>(
-            popupProps: const PopupProps.menu(showSearchBox: true),
-            items: (String filter, dynamic props) {
-              final list = widget.uniqueCSMs.toList();
-              if (filter.isEmpty) return list;
-              return list
-                  .where(
-                    (item) => item.toLowerCase().contains(filter.toLowerCase()),
-                  )
-                  .toList();
-            },
-            decoratorProps: const DropDownDecoratorProps(
-              decoration: InputDecoration(
-                labelText: "CSM/RM Name",
-                border: OutlineInputBorder(),
-              ),
+            _buildFilterDropdown(
+              label: 'LOB',
+              options: widget.uniqueLOBs.toList(),
+              selectedValue: _selectedLOB,
+              onChanged: (value) => setState(() => _selectedLOB = value),
             ),
-            onChanged: (value) => _selectedCSM = value,
-            selectedItem: _selectedCSM,
-          ),
-          const SizedBox(height: 12),
-          // Location Dropdown <-- NEW
-          DropdownSearch<String>(
-            popupProps: const PopupProps.menu(showSearchBox: true),
-            items: (String filter, dynamic props) {
-              final list = widget.uniqueLocations.toList();
-              if (filter.isEmpty) return list;
-              return list
-                  .where(
-                    (item) => item.toLowerCase().contains(filter.toLowerCase()),
-                  )
-                  .toList();
-            },
-            decoratorProps: const DropDownDecoratorProps(
-              decoration: InputDecoration(
-                labelText: "Location",
-                border: OutlineInputBorder(),
-              ),
+            _buildFilterDropdown(
+              label: 'CSM/RM',
+              options: widget.uniqueCSMs.toList(),
+              selectedValue: _selectedCSM,
+              onChanged: (value) => setState(() => _selectedCSM = value),
             ),
-            onChanged: (value) => _selectedLocation = value,
-            selectedItem: _selectedLocation,
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              TextButton(
-                onPressed: () {
-                  // Pass null for all filter variables to clear them
-                  widget.onApplyFilters(null, null, null, null);
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Clear Filters'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  // Apply all selected filter variables
-                  widget.onApplyFilters(
-                    _selectedStatus,
-                    _selectedLOB,
-                    _selectedCSM,
-                    _selectedLocation,
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Apply'),
-              ),
-            ],
-          ),
-        ],
+            _buildFilterDropdown(
+              label: 'Location',
+              options: widget.uniqueLocations.toList(),
+              selectedValue: _selectedLocation,
+              onChanged: (value) => setState(() => _selectedLocation = value),
+            ),
+            // --- NEW DROPDOWNS ---
+            _buildFilterDropdown(
+              label: 'Urgency',
+              options: widget.urgencyFilters,
+              selectedValue: _selectedUrgency,
+              onChanged: (value) => setState(() => _selectedUrgency = value),
+            ),
+            _buildFilterDropdown(
+              label: 'Aging',
+              options: widget.agingFilters,
+              selectedValue: _selectedAging,
+              onChanged: (value) => setState(() => _selectedAging = value),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                widget.onApplyFilters(
+                  _selectedStatus,
+                  _selectedLOB,
+                  _selectedCSM,
+                  _selectedLocation,
+                  _selectedUrgency,
+                  _selectedAging,
+                );
+                Navigator.of(context).pop();
+              },
+              child: const Text('Apply Filters'),
+            ),
+          ],
+        ),
       ),
     );
   }
