@@ -1,20 +1,23 @@
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 
 class FilterBottomSheet extends StatefulWidget {
   final Set<String> uniqueStatuses;
   final Set<String> uniqueLOBs;
   final Set<String> uniqueCSMs;
+  final Set<String> uniqueProposers;
   final Set<String> uniqueLocations;
-  final List<String> urgencyFilters; // <-- NEW
-  final List<String> agingFilters; // <-- NEW
-  final Function(String?, String?, String?, String?, String?, String?)
-  onApplyFilters; // <-- UPDATED
+  final List<String> urgencyFilters;
+  final List<String> agingFilters;
+  final Function(String?, String?, String?, String?, String?, String?, String?)
+  onApplyFilters;
 
   const FilterBottomSheet({
     super.key,
     required this.uniqueStatuses,
     required this.uniqueLOBs,
     required this.uniqueCSMs,
+    required this.uniqueProposers,
     required this.uniqueLocations,
     required this.urgencyFilters,
     required this.agingFilters,
@@ -29,9 +32,10 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   String? _selectedStatus;
   String? _selectedLOB;
   String? _selectedCSM;
+  String? _selectedProposer;
   String? _selectedLocation;
-  String? _selectedUrgency; // <-- NEW
-  String? _selectedAging; // <-- NEW
+  String? _selectedUrgency;
+  String? _selectedAging;
 
   @override
   void initState() {
@@ -43,12 +47,13 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       _selectedStatus = null;
       _selectedLOB = null;
       _selectedCSM = null;
+      _selectedProposer = null;
       _selectedLocation = null;
       _selectedUrgency = null;
       _selectedAging = null;
     });
     // This will apply the cleared filters to the parent widget
-    widget.onApplyFilters(null, null, null, null, null, null);
+    widget.onApplyFilters(null, null, null, null, null, null, null);
     Navigator.of(context).pop();
   }
 
@@ -118,6 +123,37 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               selectedValue: _selectedCSM,
               onChanged: (value) => setState(() => _selectedCSM = value),
             ),
+
+            // _buildFilterDropdown(
+            //   label: 'Proposer',
+            //   options: widget.uniqueProposers.toList(),
+            //   selectedValue: _selectedProposer,
+            //   onChanged: (value) => setState(() => _selectedProposer = value),
+            // ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: DropdownSearch<String>(
+                popupProps: const PopupProps.menu(showSearchBox: true),
+                decoratorProps: const DropDownDecoratorProps(
+                  decoration: InputDecoration(
+                    labelText: "Proposer",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                items: (String filter, dynamic props) {
+                  final list = widget.uniqueProposers.toList();
+                  if (filter.isEmpty) return list;
+                  return list
+                      .where(
+                        (item) =>
+                            item.toLowerCase().contains(filter.toLowerCase()),
+                      )
+                      .toList();
+                },
+                onChanged: (value) => setState(() => _selectedProposer = value),
+                selectedItem: _selectedProposer,
+              ),
+            ),
             _buildFilterDropdown(
               label: 'Location',
               options: widget.uniqueLocations.toList(),
@@ -144,6 +180,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   _selectedStatus,
                   _selectedLOB,
                   _selectedCSM,
+                  _selectedProposer,
                   _selectedLocation,
                   _selectedUrgency,
                   _selectedAging,

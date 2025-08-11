@@ -29,17 +29,17 @@ class _RfqListScreenState extends State<RfqListScreen> {
   String? _selectedStatusFilter;
   String? _selectedLOBFilter;
   String? _selectedCSMFilter;
+  String? _selectedProposerFilter;
   String? _selectedLocationFilter;
-  String? _selectedUrgencyFilter; // <-- NEW
-  String? _selectedAgingFilter; // <-- NEW
+  String? _selectedUrgencyFilter;
+  String? _selectedAgingFilter;
 
   // List of unique values for dropdowns
   Set<String> _uniqueStatuses = {};
   Set<String> _uniqueLOBs = {};
   Set<String> _uniqueCSMs = {};
+  Set<String> _uniqueProposers = {};
   Set<String> _uniqueLocations = {};
-
-  // Static lists for new filters
   final List<String> _urgencyFilters = ['Expired', 'Expiring Soon'];
   final List<String> _agingFilters = [
     'New (0-2 days)',
@@ -54,6 +54,11 @@ class _RfqListScreenState extends State<RfqListScreen> {
 
   Future<void> _fetchUniqueFilterValues() async {
     try {
+      final rfqSnapshot = await _firestore.collection('rfqs').get();
+      final proposerNames = rfqSnapshot.docs
+          .map((doc) => doc.data()['proposerName'] as String)
+          .toSet();
+
       final statuses = await _fetchMasterList('statuses');
       final lobs = await _fetchMasterList('lobs');
       final csmNames = await _fetchMasterList('csm_rm_names');
@@ -63,6 +68,7 @@ class _RfqListScreenState extends State<RfqListScreen> {
         _uniqueStatuses = statuses;
         _uniqueLOBs = lobs;
         _uniqueCSMs = csmNames;
+        _uniqueProposers = proposerNames;
         _uniqueLocations = locations;
       });
     } catch (e) {
@@ -88,15 +94,15 @@ class _RfqListScreenState extends State<RfqListScreen> {
     if (_selectedCSMFilter != null) {
       query = query.where('csmRmName', isEqualTo: _selectedCSMFilter);
     }
+    if (_selectedProposerFilter != null) {
+      query = query.where('proposerName', isEqualTo: _selectedProposerFilter);
+    }
     if (_selectedLocationFilter != null) {
       query = query.where('location', isEqualTo: _selectedLocationFilter);
     }
-
-    // --- NEW: Query for urgency and aging ---
     if (_selectedUrgencyFilter != null) {
       query = query.where('urgencyFlag', isEqualTo: _selectedUrgencyFilter);
     }
-
     if (_selectedAgingFilter != null) {
       final now = DateTime.now();
       if (_selectedAgingFilter == 'New (0-2 days)') {
@@ -130,20 +136,22 @@ class _RfqListScreenState extends State<RfqListScreen> {
           uniqueStatuses: _uniqueStatuses,
           uniqueLOBs: _uniqueLOBs,
           uniqueCSMs: _uniqueCSMs,
+          uniqueProposers: _uniqueProposers,
           uniqueLocations: _uniqueLocations,
-          urgencyFilters: _urgencyFilters, // <-- NEW
-          agingFilters: _agingFilters, // <-- NEW
-          onApplyFilters: (status, lob, csm, location, urgency, aging) {
-            // <-- UPDATED SIGNATURE
-            setState(() {
-              _selectedStatusFilter = status;
-              _selectedLOBFilter = lob;
-              _selectedCSMFilter = csm;
-              _selectedLocationFilter = location;
-              _selectedUrgencyFilter = urgency; // <-- NEW
-              _selectedAgingFilter = aging; // <-- NEW
-            });
-          },
+          urgencyFilters: _urgencyFilters,
+          agingFilters: _agingFilters,
+          onApplyFilters:
+              (status, lob, csm, customer, location, urgency, aging) {
+                setState(() {
+                  _selectedStatusFilter = status;
+                  _selectedLOBFilter = lob;
+                  _selectedCSMFilter = csm;
+                  _selectedProposerFilter = customer;
+                  _selectedLocationFilter = location;
+                  _selectedUrgencyFilter = urgency;
+                  _selectedAgingFilter = aging;
+                });
+              },
         );
       },
     );
@@ -313,18 +321,18 @@ class _RfqListScreenState extends State<RfqListScreen> {
                 );
               },
             ),
-          if (_isAdmin)
-            IconButton(
-              icon: const Icon(Icons.analytics),
-              tooltip: 'Analytics Dashboard',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AnalyticsDashboardScreen(),
-                  ),
-                );
-              },
-            ),
+          // if (_isAdmin)
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            tooltip: 'Analytics Dashboard',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const AnalyticsDashboardScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             tooltip: 'Filter',
@@ -561,6 +569,13 @@ class _RfqListScreenState extends State<RfqListScreen> {
           onDeleted: () => setState(() => _selectedCSMFilter = null),
         ),
       );
+    if (_selectedProposerFilter != null)
+      activeFilters.add(
+        Chip(
+          label: Text('Proposer: $_selectedProposerFilter'),
+          onDeleted: () => setState(() => _selectedProposerFilter = null),
+        ),
+      );
     if (_selectedLocationFilter != null)
       activeFilters.add(
         Chip(
@@ -594,6 +609,7 @@ class _RfqListScreenState extends State<RfqListScreen> {
                   _selectedStatusFilter = null;
                   _selectedLOBFilter = null;
                   _selectedCSMFilter = null;
+                  _selectedProposerFilter = null;
                   _selectedLocationFilter = null;
                 }),
                 child: const Text('Clear All'),
@@ -622,16 +638,16 @@ class _RfqListScreenState extends State<RfqListScreen> {
       urgencyIcon = null;
     }
 
-    // --- NEW: Aging Badge Logic ---
+    // --- Aging Badge Logic ---
     final now = DateTime.now();
     final agingDays = now.difference(rfq.rfqSendDate).inDays;
     Color agingColor;
     String agingLabel;
 
-    if (agingDays <= 7) {
+    if (agingDays <= 2) {
       agingColor = Colors.green;
       agingLabel = '$agingDays Days';
-    } else if (agingDays <= 14) {
+    } else if (agingDays <= 7) {
       agingColor = Colors.amber;
       agingLabel = '$agingDays Days';
     } else {
@@ -671,7 +687,7 @@ class _RfqListScreenState extends State<RfqListScreen> {
                 ),
               ),
               backgroundColor: agingColor,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
             ),
           ],
         ),
