@@ -42,9 +42,9 @@ class _RfqListScreenState extends State<RfqListScreen> {
   // Static lists for new filters
   final List<String> _urgencyFilters = ['Expired', 'Expiring Soon'];
   final List<String> _agingFilters = [
-    'New (0-7 days)',
-    'Aging (8-14 days)',
-    'Stale (15+ days)',
+    'New (0-2 days)',
+    'Aging (3-6 days)',
+    'Stale (7+ days)',
   ];
 
   Future<Set<String>> _fetchMasterList(String collectionName) async {
@@ -99,19 +99,19 @@ class _RfqListScreenState extends State<RfqListScreen> {
 
     if (_selectedAgingFilter != null) {
       final now = DateTime.now();
-      if (_selectedAgingFilter == 'New (0-7 days)') {
-        final sevenDaysAgo = now.subtract(const Duration(days: 7));
+      if (_selectedAgingFilter == 'New (0-2 days)') {
+        final sevenDaysAgo = now.subtract(const Duration(days: 2));
         query = query.where(
           'rfqSendDate',
           isGreaterThanOrEqualTo: sevenDaysAgo,
         );
-      } else if (_selectedAgingFilter == 'Aging (8-14 days)') {
-        final eightDaysAgo = now.subtract(const Duration(days: 8));
-        final fifteenDaysAgo = now.subtract(const Duration(days: 15));
+      } else if (_selectedAgingFilter == 'Aging (3-6 days)') {
+        final eightDaysAgo = now.subtract(const Duration(days: 3));
+        final fifteenDaysAgo = now.subtract(const Duration(days: 7));
         query = query
             .where('rfqSendDate', isLessThan: eightDaysAgo)
             .where('rfqSendDate', isGreaterThan: fifteenDaysAgo);
-      } else if (_selectedAgingFilter == 'Stale (15+ days)') {
+      } else if (_selectedAgingFilter == 'Stale (7+ days)') {
         final fifteenDaysAgo = now.subtract(const Duration(days: 15));
         query = query.where('rfqSendDate', isLessThan: fifteenDaysAgo);
       }
