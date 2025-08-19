@@ -334,17 +334,6 @@ class _RfqListScreenState extends State<RfqListScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.analytics),
-            tooltip: 'Analytics Dashboard',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const AnalyticsDashboardScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.filter_list),
             tooltip: 'Filter',
             onPressed: _showFilterOptions,
