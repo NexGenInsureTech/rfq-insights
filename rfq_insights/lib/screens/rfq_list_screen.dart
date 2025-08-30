@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -52,17 +53,33 @@ class _RfqListScreenState extends State<RfqListScreen> {
     return snapshot.docs.map((doc) => doc.data()['name'] as String).toSet();
   }
 
+  // --- REFACTORED: Now correctly fetches all filter values ---
   Future<void> _fetchUniqueFilterValues() async {
     try {
       final rfqSnapshot = await _firestore.collection('rfqs').get();
       final proposerNames = rfqSnapshot.docs
           .map((doc) => doc.data()['proposerName'] as String)
           .toSet();
+      if (kDebugMode) {
+        print('Fetched proposer names: $proposerNames');
+      }
 
       final statuses = await _fetchMasterList('statuses');
+      if (kDebugMode) {
+        print('Fetched statuses: $statuses');
+      }
       final lobs = await _fetchMasterList('lobs');
+      if (kDebugMode) {
+        print('Fetched LOBs: $lobs');
+      }
       final csmNames = await _fetchMasterList('csm_rm_names');
+      if (kDebugMode) {
+        print('Fetched CSM Names: $csmNames');
+      }
       final locations = await _fetchMasterList('locations');
+      if (kDebugMode) {
+        print('Fetched Locations: $locations');
+      }
 
       setState(() {
         _uniqueStatuses = statuses;
@@ -72,7 +89,9 @@ class _RfqListScreenState extends State<RfqListScreen> {
         _uniqueLocations = locations;
       });
     } catch (e) {
-      print('Error fetching master lists for filters: $e');
+      if (kDebugMode) {
+        print('Error fetching master lists for filters: $e');
+      }
     }
   }
 
@@ -84,6 +103,10 @@ class _RfqListScreenState extends State<RfqListScreen> {
 
   Stream<QuerySnapshot> _buildQuery() {
     Query query = _firestore.collection('rfqs');
+
+    if (!_isAdmin && _auth.currentUser?.uid != null) {
+      query = query.where('userId', isEqualTo: _auth.currentUser!.uid);
+    }
 
     if (_selectedStatusFilter != null) {
       query = query.where('status', isEqualTo: _selectedStatusFilter);
@@ -106,23 +129,19 @@ class _RfqListScreenState extends State<RfqListScreen> {
     if (_selectedAgingFilter != null) {
       final now = DateTime.now();
       if (_selectedAgingFilter == 'New (0-2 days)') {
-        final sevenDaysAgo = now.subtract(const Duration(days: 2));
-        query = query.where(
-          'rfqSendDate',
-          isGreaterThanOrEqualTo: sevenDaysAgo,
-        );
+        final twoDaysAgo = now.subtract(const Duration(days: 2));
+        query = query.where('rfqSendDate', isGreaterThanOrEqualTo: twoDaysAgo);
       } else if (_selectedAgingFilter == 'Aging (3-6 days)') {
-        final eightDaysAgo = now.subtract(const Duration(days: 3));
-        final fifteenDaysAgo = now.subtract(const Duration(days: 7));
+        final threeDaysAgo = now.subtract(const Duration(days: 3));
+        final sevenDaysAgo = now.subtract(const Duration(days: 7));
         query = query
-            .where('rfqSendDate', isLessThan: eightDaysAgo)
-            .where('rfqSendDate', isGreaterThan: fifteenDaysAgo);
+            .where('rfqSendDate', isLessThan: threeDaysAgo)
+            .where('rfqSendDate', isGreaterThan: sevenDaysAgo);
       } else if (_selectedAgingFilter == 'Stale (7+ days)') {
-        final fifteenDaysAgo = now.subtract(const Duration(days: 15));
-        query = query.where('rfqSendDate', isLessThan: fifteenDaysAgo);
+        final sevenDaysAgo = now.subtract(const Duration(days: 7));
+        query = query.where('rfqSendDate', isLessThan: sevenDaysAgo);
       }
     }
-    // Note: For multi-field queries, you might need to create composite indexes in Firestore.
 
     return query.snapshots();
   }
@@ -141,12 +160,12 @@ class _RfqListScreenState extends State<RfqListScreen> {
           urgencyFilters: _urgencyFilters,
           agingFilters: _agingFilters,
           onApplyFilters:
-              (status, lob, csm, customer, location, urgency, aging) {
+              (status, lob, csm, proposer, location, urgency, aging) {
                 setState(() {
                   _selectedStatusFilter = status;
                   _selectedLOBFilter = lob;
                   _selectedCSMFilter = csm;
-                  _selectedProposerFilter = customer;
+                  _selectedProposerFilter = proposer;
                   _selectedLocationFilter = location;
                   _selectedUrgencyFilter = urgency;
                   _selectedAgingFilter = aging;
@@ -197,13 +216,21 @@ class _RfqListScreenState extends State<RfqListScreen> {
 
   Future<void> _downloadRfqList() async {
     try {
-      final querySnapshot = await _firestore.collection('rfqs').get();
+      Query query = _firestore.collection('rfqs');
+
+      if (!_isAdmin && _auth.currentUser?.uid != null) {
+        query = query.where('userId', isEqualTo: _auth.currentUser!.uid);
+      }
+
+      final querySnapshot = await query.get();
       final rfqDocs = querySnapshot.docs;
 
       if (rfqDocs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No RFQ entries to download.')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No RFQ entries to download.')),
+          );
+        }
         return;
       }
 
@@ -265,8 +292,8 @@ class _RfqListScreenState extends State<RfqListScreen> {
           rfq.totalPremiumWithGst,
           rfq.policyExpiryDate != null
               ? DateFormat('dd-MMM-yyyy').format(rfq.policyExpiryDate!)
-              : 'N/A', // <-- NEW
-          rfq.urgencyFlag ?? 'N/A', // <-- NEW
+              : 'N/A',
+          rfq.urgencyFlag ?? 'N/A',
         ]);
       }
 
@@ -287,13 +314,17 @@ class _RfqListScreenState extends State<RfqListScreen> {
       web.document.body!.removeChild(anchor);
       web.URL.revokeObjectURL(url);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('RFQ list downloaded successfully!')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('RFQ list downloaded successfully!')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download RFQ list: $e')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to download RFQ list: $e')),
+        );
+      }
     }
   }
 
@@ -321,18 +352,18 @@ class _RfqListScreenState extends State<RfqListScreen> {
                 );
               },
             ),
-          // if (_isAdmin)
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            tooltip: 'Analytics Dashboard',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const AnalyticsDashboardScreen(),
-                ),
-              );
-            },
-          ),
+          if (_isAdmin)
+            IconButton(
+              icon: const Icon(Icons.analytics),
+              tooltip: 'Analytics Dashboard',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AnalyticsDashboardScreen(),
+                  ),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.filter_list),
             tooltip: 'Filter',
